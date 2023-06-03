@@ -45,35 +45,36 @@ class VirusTotalClient:
         response = requests.post(url, files=files, headers=headers)
         return response
 
-# Load environment variable from .env file
-load_dotenv()
-API_KEY = os.getenv('API_KEY')
+if __name__ == '__main__':
+    # Load environment variable from .env file
+    load_dotenv()
+    API_KEY = os.getenv('API_KEY')
 
-# Retreive command line arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('-f', '--file', dest='file_to_scan', help='File to scan', required=False)
-args = parser.parse_args()
-file_name = args.file_to_scan
+    # Retreive command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', dest='file_to_scan', help='File to scan', required=False)
+    args = parser.parse_args()
+    file_name = args.file_to_scan
 
-# Set upload path
-basedir = os.path.abspath(os.path.dirname(__file__)) + '/'
-uploadsdir = os.path.join(basedir, 'uploads')
+    # Set upload path
+    basedir = os.path.abspath(os.path.dirname(__file__)) + '/'
+    uploadsdir = os.path.join(basedir, 'uploads')
 
-if API_KEY:
-    client = VirusTotalClient(API_KEY)
-    file_path = f'{uploadsdir}/{file_name}'
-  
-    # Scan the file
-    response = client.scan_file(file_path)
+    if API_KEY:
+        client = VirusTotalClient(API_KEY)
+        file_path = f'{uploadsdir}/{file_name}'
 
-    if response.ok:
-        response_data = response.json()
-        analysis_id = response_data['data']['id']
-        print(f"File successfully submitted for scanning. Analysis ID: {analysis_id}")
-        analysis_response = client.get_file_analysis(analysis_id)
-        file_id = analysis_response.json()['meta']['file_info']['sha256']
-        file_report = client.get_file_report(file_id)
+        # Scan the file
+        response = client.scan_file(file_path)
+
+        if response.ok:
+            response_data = response.json()
+            analysis_id = response_data['data']['id']
+            print(f"File successfully submitted for scanning. Analysis ID: {analysis_id}")
+            analysis_response = client.get_file_analysis(analysis_id)
+            file_id = analysis_response.json()['meta']['file_info']['sha256']
+            file_report = client.get_file_report(file_id)
+        else:
+            print(f"Scan request failed: {response.text}")
     else:
-        print(f"Scan request failed: {response.text}")
-else:
-    print("Please set the VIRUSTOTAL_API_KEY environment variable.")
+        print("Please set the VIRUSTOTAL_API_KEY environment variable.")

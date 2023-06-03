@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" >
+    <h1 class="text-light">VirusTotal Analysis Dashboard</h1>
+
+    <table>
+        <tr>
+            <th>File ID</th>
+            <th>Malicious Count</th>
+            <th>Suspicious Count</th>
+        </tr>
+        {% for analysis_item in analysis_stats %}
+        <tr>
+            <td class="text-left">{{ analysis_item.file_id }}</td>
+            <td class="text-center">{{ analysis_item.malicious_count }}</td>
+            <td class="text-center">{{ analysis_item.suspicious_count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
