@@ -1,4 +1,5 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
+from flask_bootstrap import Bootstrap
 from virustotal import VirusTotalClient
 from dotenv import load_dotenv
 from models import db, Analysis
@@ -20,6 +21,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' +  basedir + 'analysis.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+bootstrap = Bootstrap(app)
+
 
 def calculate_file_sha256(file_path):
     sha256_hash = hashlib.sha256()
@@ -38,29 +41,30 @@ def serialize(obj):
     columns = [c.key for c in class_mapper(obj.__class__).columns]
     return {c: getattr(obj, c) for c in columns}
 
-@app.route('/')
+@app.route('/', methods=['GET'])
 def dashboard():
-    # Initialize the VirusTotalClient
-    client = VirusTotalClient(API_KEY)
+    return render_template('dashboard.html')
 
-    for filename in os.listdir(file_path):
-        file_path = os.path.abspath(os.path.join(uploadsdir, filename))
-        file_sha_256 = calculate_file_sha256(file_path)
-        if Analysis.query.filter_by(file_id=file_sha_256).first():
-            print(f'File {filename} already scanned and analyzed.')
-            continue
-        else:
-            # Scan the file
-            response = client.scan_file(file_path)
+@app.route('/scan', methods=['POST'])
+def scan():
+    file = request.files['file']
+    file.save('uploads/' + file.filename)
 
-            if response.ok:
-                scan_data = response.json()
-                analysis_id = scan_data['data']['id']
-                print(f"File successfully submitted for scanning. Analysis ID: {analysis_id}")
-            else:
-                error_msg = f'Scan request failed: {response.text}'
-                return render_template('error.html', error_message=error_msg)
+    file_path = os.path.abspath(os.path.join(uploadsdir, file.filename))
+    file_sha_256 = calculate_file_sha256(file_path)
 
+    if Analysis.query.filter_by(file_id=file_sha_256).first():
+        return render_template('dashboard.html', msg=f'File {file.filename} already scanned and analyzed.')
+    else:
+        # Initialize the VirusTotalClient
+        client = VirusTotalClient(API_KEY)
+        
+        # Scan the file
+        response = client.scan_file(file_path)
+
+        if response.ok:
+            scan_data = response.json()
+            analysis_id = scan_data['data']['id']
             response = client.get_file_analysis(analysis_id)
             if response.status_code == 200:
                 analysis_data = response.json()
@@ -85,9 +89,16 @@ def dashboard():
                 error_msg = f'Error retrieving file report for File ID: {file_id}. Status code: {response.status_code}'
                 return render_template('error.html', error_message=error_msg)
 
+            return render_template('dashboard.html', msg=f"File successfully submitted for scanning. Analysis ID: {analysis_id}")
+        else:
+            error_msg = f'Scan request failed: {response.text}'
+            return render_template('error.html', error_message=error_msg)
+
+@app.route('/scan_result', methods=['GET'])
+def scan_result():
     analysis_objects = Analysis.query.all()
     serialized_analysis_objects = [serialize(obj) for obj in analysis_objects]
 
-    return render_template('dashboard.html', analysis_stats=serialized_analysis_objects)
+    return render_template('scan_result.html', analysis_stats=serialized_analysis_objects)
 
 app.run(port=5000)
