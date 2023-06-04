@@ -30,12 +30,6 @@ class VirusTotalClient:
         response = requests.get(url, headers=headers)
         return response
 
-    def get_file_analysis(self, analysis_id):
-        url = f'{self.base_url}/analyses/{analysis_id}'
-        headers = {'x-apikey': self.api_key}
-        response = requests.get(url, headers=headers)
-        return response
-
     def scan_file(self, file_path):
         file_size = get_file_size(file_path)
         url = f'{self.base_url}/files' if file_size < 32 else self.get_upload_url()
