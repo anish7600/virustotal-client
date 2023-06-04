@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request
+from flask_migrate import Migrate
+
 from flask_bootstrap import Bootstrap
 from virustotal import VirusTotalClient
 from dotenv import load_dotenv
@@ -21,8 +23,9 @@ app.config['SECRET_KEY'] = 'secret'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' +  basedir + 'analysis.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db.init_app(app)
 bootstrap = Bootstrap(app)
+migrate = Migrate(app, db)
+db.init_app(app)
 
 
 def calculate_file_sha256(file_path):
@@ -35,6 +38,24 @@ def calculate_file_sha256(file_path):
 
     return sha256_hash.hexdigest()
 
+def get_analysis_status(client, resource_type, sha, response):
+    last_analysis_results = response['data']['attributes']['last_analysis_results']
+    attempts = 0
+    while not last_analysis_results and attempts < 5:
+        attempts += 1
+        response = client.get_resource_report(resource_type, sha).json()
+        last_analysis_results = response['data']['attributes']['last_analysis_results']
+        if last_analysis_results:
+            break
+        else:
+            print(f"Analysis in progress, waiting...")
+            sleep(10)
+
+    return last_analysis_results
+
+def calculate_url_sha256(url):
+    return hashlib.sha256(url.encode()).hexdigest()
+
 def serialize(obj):
     """
     Serialize SQLAlchemy object to a dictionary.
@@ -42,18 +63,18 @@ def serialize(obj):
     columns = [c.key for c in class_mapper(obj.__class__).columns]
     return {c: getattr(obj, c) for c in columns}
 
-def save_analysis_stats_to_db(file_sha_256, file_report_data):
-    analysis_stats = file_report_data['data']['attributes']['last_analysis_stats']
+def save_analysis_stats_to_db(sha, data):
+    analysis_stats = data['data']['attributes']['last_analysis_stats']
     malicious_count = analysis_stats['malicious']
     suspicious_count = analysis_stats['suspicious']
 
     # check if file already exists in db
-    analysis_obj = Analysis.query.filter_by(file_id=file_sha_256).first()
+    analysis_obj = Analysis.query.filter_by(resource_id=sha).first()
     if analysis_obj:
         analysis_obj.malicious_count = malicious_count
         analysis_obj.suspicious_count = suspicious_count
     else:
-        analysis = Analysis(file_id=file_sha_256, malicious_count=malicious_count, suspicious_count=suspicious_count)
+        analysis = Analysis(resource_id=sha, malicious_count=malicious_count, suspicious_count=suspicious_count)
         db.session.add(analysis)
     db.session.commit()
 
@@ -65,43 +86,51 @@ def dashboard():
 @app.route('/scan', methods=['POST'])
 def scan():
     file = request.files['file']
-    file.save('uploads/' + file.filename)
-
-    file_path = os.path.abspath(os.path.join(uploadsdir, file.filename))
-    file_sha_256 = calculate_file_sha256(file_path)
-
+    url = request.form['url']
+    resource_type = 'files' if file else 'urls'
     # Initialize the VirusTotalClient
     client = VirusTotalClient(API_KEY)
 
-    # Get File Report
-    response = client.get_file_report(file_sha_256)
-    file_report_data = response.json()
-    if response.status_code == 200:
-        save_analysis_stats_to_db(file_sha_256, file_report_data)
-        return render_template('dashboard.html', msg=f'File {file.filename} already scanned and analyzed by VirusTotal.')
-    elif response.status_code == 404:
-        # Upload the file to VT for scanning
-        client.scan_file(file_path)
-        response = client.get_file_report(file_sha_256).json()
+    # Analyze File
+    if file:
+        file.save('uploads/' + file.filename)
+        file_path = os.path.abspath(os.path.join(uploadsdir, file.filename))
+        file_sha_256 = calculate_file_sha256(file_path)
+
+        # Get File Report
+        response = client.get_resource_report(resource_type, file_sha_256)
+        file_report_data = response.json()
+        if response.status_code == 200:
+            save_analysis_stats_to_db(file_sha_256, file_report_data)
+            return render_template('dashboard.html', msg=f'File {file.filename} already scanned and analyzed by VirusTotal.')
+        elif response.status_code == 404:
+            # Upload the file to VT for scanning
+            client.scan_file(file_path)
+            response = client.get_resource_report(resource_type, file_sha_256).json()
+
+            # check if analysis is finished
+            is_pending = get_analysis_status(client, resource_type, file_sha_256, response)           
+
+            if is_pending:
+                return render_template('dashboard.html', msg=f'Analysis in progress! File Id: {file_sha_256}')
+            else:
+                save_analysis_stats_to_db(file_sha_256, response)
+                return render_template('dashboard.html', msg=f'File {file.filename} scanned and analyzed by VirusTotal.')
+    # Analyze URL
+    if url:
+        url_sha = calculate_url_sha256(url)
+        response = client.scan_url(url)
+        url_id = response.json()['data']['id'].split('-')[1]
+        response = client.get_resource_report(resource_type, url_id).json()
 
         # check if analysis is finished
-        last_analysis_results = response['data']['attributes']['last_analysis_results']
-        attempts = 0
-        while not last_analysis_results and attempts < 5:
-            attempts += 1
-            response = client.get_file_report(file_sha_256).json()
-            last_analysis_results = response['data']['attributes']['last_analysis_results']
-            if last_analysis_results:
-                break
-            else:
-                print(f"Analysis in progress, waiting...")
-                sleep(10)
+        last_analysis_results = get_analysis_status(client, resource_type, url_id, response)
 
         if not last_analysis_results:
-            return render_template('dashboard.html', msg=f'Analysis in progress! File Id: {file_sha_256}')
+            return render_template('dashboard.html', msg=f'Analysis in progress! URL Id: {url_id}')
         else:
-            save_analysis_stats_to_db(file_sha_256, response)
-            return render_template('dashboard.html', msg=f'File {file.filename} scanned and analyzed by VirusTotal.')
+            save_analysis_stats_to_db(url_id, response)
+            return render_template('dashboard.html', msg=f'URL {url} scanned and analyzed by VirusTotal.')
 
 @app.route('/scan_result', methods=['GET'])
 def scan_result():
@@ -110,4 +139,6 @@ def scan_result():
 
     return render_template('scan_result.html', analysis_stats=serialized_analysis_objects)
 
-app.run(port=5000)
+
+if __name__ == '__main__':
+    app.run(port=5000)

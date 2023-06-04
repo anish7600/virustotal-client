@@ -24,8 +24,8 @@ class VirusTotalClient:
         response = requests.get(url, headers=headers)
         return response.json()['data']
     
-    def get_file_report(self, file_hash):
-        url = f'{self.base_url}/files/{file_hash}'
+    def get_resource_report(self, resource_type, sha):
+        url = f'{self.base_url}/{resource_type}/{sha}'
         headers = {'x-apikey': self.api_key}
         response = requests.get(url, headers=headers)
         return response
@@ -37,6 +37,13 @@ class VirusTotalClient:
         files = {'file': open(file_path, 'rb')}
         headers = {'x-apikey': self.api_key, 'accept': 'application/json'}
         response = requests.post(url, files=files, headers=headers)
+        return response
+
+    def scan_url(self, url):
+        url = f'{self.base_url}/urls'
+        payload = f'url={url}'
+        headers = {'x-apikey': self.api_key, 'accept': 'application/json'}
+        response = requests.post(url, data=payload, headers=headers)
         return response
 
 if __name__ == '__main__':
