@@ -39,9 +39,9 @@ class VirusTotalClient:
         response = requests.post(url, files=files, headers=headers)
         return response
 
-    def scan_url(self, url):
+    def scan_url(self, url_to_scan):
         url = f'{self.base_url}/urls'
-        payload = f'url={url}'
+        payload = f'url={url_to_scan}'
         headers = {'x-apikey': self.api_key, 'accept': 'application/json'}
         response = requests.post(url, data=payload, headers=headers)
         return response

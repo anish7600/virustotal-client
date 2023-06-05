@@ -1,15 +1,14 @@
 from flask import Flask, render_template, request
 from flask_migrate import Migrate
-
 from flask_bootstrap import Bootstrap
 from virustotal import VirusTotalClient
 from dotenv import load_dotenv
 from models import db, Analysis
-import requests
 import os
 import hashlib
 from sqlalchemy.orm import class_mapper
 from time import sleep
+import json
 
 # Load environment variable from .env file
 load_dotenv()
@@ -64,6 +63,8 @@ def serialize(obj):
     return {c: getattr(obj, c) for c in columns}
 
 def save_analysis_stats_to_db(sha, data):
+    resource_type = data['data']['type']
+    resource_name = data['data']['attributes']['names'][0] if resource_type == 'file' else data['data']['attributes']['url']
     analysis_stats = data['data']['attributes']['last_analysis_stats']
     malicious_count = analysis_stats['malicious']
     suspicious_count = analysis_stats['suspicious']
@@ -74,7 +75,7 @@ def save_analysis_stats_to_db(sha, data):
         analysis_obj.malicious_count = malicious_count
         analysis_obj.suspicious_count = suspicious_count
     else:
-        analysis = Analysis(resource_id=sha, malicious_count=malicious_count, suspicious_count=suspicious_count)
+        analysis = Analysis(resource_id=sha, resource_name=resource_name, resource_type=resource_type, malicious_count=malicious_count, suspicious_count=suspicious_count)
         db.session.add(analysis)
     db.session.commit()
 
@@ -130,14 +131,15 @@ def scan():
             return render_template('dashboard.html', msg=f'Analysis in progress! URL Id: {url_id}')
         else:
             save_analysis_stats_to_db(url_id, response)
-            return render_template('dashboard.html', msg=f'URL {url} scanned and analyzed by VirusTotal.')
+            return render_template('dashboard.html', msg=f'URL {url_id} scanned and analyzed by VirusTotal.')
 
-@app.route('/scan_result', methods=['GET'])
+@app.route('/scan_results', methods=['POST'])
 def scan_result():
-    analysis_objects = Analysis.query.all()
+    resource_type = request.form.get('resource_type')
+    analysis_objects = Analysis.query.filter_by(resource_type=resource_type)
     serialized_analysis_objects = [serialize(obj) for obj in analysis_objects]
 
-    return render_template('scan_result.html', analysis_stats=serialized_analysis_objects)
+    return render_template('scan_results.html', analysis_stats=serialized_analysis_objects)
 
 
 if __name__ == '__main__':
