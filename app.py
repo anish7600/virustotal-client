@@ -26,7 +26,6 @@ bootstrap = Bootstrap(app)
 migrate = Migrate(app, db)
 db.init_app(app)
 
-
 def calculate_file_sha256(file_path):
     sha256_hash = hashlib.sha256()
 
@@ -55,30 +54,15 @@ def get_analysis_status(client, resource_type, sha, response):
 def calculate_url_sha256(url):
     return hashlib.sha256(url.encode()).hexdigest()
 
-def serialize(obj):
-    """
-    Serialize SQLAlchemy object to a dictionary.
-    """
-    columns = [c.key for c in class_mapper(obj.__class__).columns]
-    return {c: getattr(obj, c) for c in columns}
-
 def save_analysis_stats_to_db(sha, data):
     resource_type = data['data']['type']
     resource_name = data['data']['attributes']['names'][0] if resource_type == 'file' else data['data']['attributes']['url']
-    analysis_stats = data['data']['attributes']['last_analysis_stats']
-    malicious_count = analysis_stats['malicious']
-    suspicious_count = analysis_stats['suspicious']
+    last_analysis_stats = data['data']['attributes']['last_analysis_stats']
+    last_analysis_results = data['data']['attributes']['last_analysis_results']
 
-    # check if file already exists in db
-    analysis_obj = Analysis.query.filter_by(resource_id=sha).first()
-    if analysis_obj:
-        analysis_obj.malicious_count = malicious_count
-        analysis_obj.suspicious_count = suspicious_count
-    else:
-        analysis = Analysis(resource_id=sha, resource_name=resource_name, resource_type=resource_type, malicious_count=malicious_count, suspicious_count=suspicious_count)
-        db.session.add(analysis)
+    analysis = Analysis(resource_id=sha, resource_name=resource_name, resource_type=resource_type, last_analysis_results=last_analysis_results, last_analysis_stats=last_analysis_stats)
+    db.session.add(analysis)
     db.session.commit()
-
 
 @app.route('/', methods=['GET'])
 def dashboard():
@@ -136,11 +120,14 @@ def scan():
 @app.route('/scan_results', methods=['POST'])
 def scan_result():
     resource_type = request.form.get('resource_type')
-    analysis_objects = Analysis.query.filter_by(resource_type=resource_type)
-    serialized_analysis_objects = [serialize(obj) for obj in analysis_objects]
+    resources = Analysis.query.filter_by(resource_type=resource_type)
+    return render_template('scan_results.html', resources=resources)
 
-    return render_template('scan_results.html', analysis_stats=serialized_analysis_objects)
-
+@app.route('/scan_engine_results', methods=['GET'])
+def scan_engine_results():
+    resc_id = request.args.get('id')
+    resc = Analysis.query.filter_by(resource_id=resc_id).first()
+    return render_template('scan_engine_results.html', resource=resc)
 
 if __name__ == '__main__':
     app.run(port=5000)

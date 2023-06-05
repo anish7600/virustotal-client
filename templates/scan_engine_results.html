@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" >
+    <h1>Scan Engine Results</h1>
+    <div style="background-color: darkgrey">
+        <h5 style="color: whitesmoke">Resoure Name: {{ resource.resource_name }}</h5>
+        <h5 style="color: whitesmoke">Resource Id: {{ resource.resource_id }}</h5>
+    </div>
+    <table>
+        <tr>
+            <th class="text-left">Scan Engine</th>
+            <th class="text-left">Category</th>
+            <th class="text-center">Results</th>
+        </tr>
+        {% for scan_engine, detection_results in resource.last_analysis_results.items() %}
+        <tr>
+            <td class="text-left">{{ scan_engine }}</td>
+            <td class="text-left">{{ detection_results['category'] }}</td>
+            <td class="text-center">{{ detection_results['result'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

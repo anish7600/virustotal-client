@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Enum
+from sqlalchemy import Enum, JSON
 
 db = SQLAlchemy()
 
@@ -8,5 +8,5 @@ class Analysis(db.Model):
     resource_type = db.Column(Enum('file', 'url'), nullable=False)
     resource_name = db.Column(db.String(100), nullable=False)
     resource_id = db.Column(db.String(300), unique=True)
-    malicious_count = db.Column(db.Integer)
-    suspicious_count = db.Column(db.Integer)
+    last_analysis_results = db.Column(JSON)
+    last_analysis_stats = db.Column(JSON)

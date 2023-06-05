@@ -4,8 +4,7 @@
 
 {% block content %}
 <div class="container" >
-    <h1 class="text-light">VirusTotal Analysis Dashboard</h1>
-
+    <h1>VirusTotal Analysis</h1>
     <table>
         <tr>
             <th>Resource Name</th>
@@ -13,14 +12,16 @@
             <th>Malicious Count</th>
             <th>Suspicious Count</th>
         </tr>
-        {% for analysis_item in analysis_stats %}
+        {% if resources %}
+        {% for resource in resources %}
         <tr>
-            <td class="text-left">{{ analysis_item.resource_name }}</td>
-            <td class="text-left">{{ analysis_item.resource_id }}</td>
-            <td class="text-center">{{ analysis_item.malicious_count }}</td>
-            <td class="text-center">{{ analysis_item.suspicious_count }}</td>
+            <td class="text-left">{{ resource.resource_name }}</td>
+            <td class="text-left"><a href="/scan_engine_results?id={{ resource.resource_id }}">{{ resource.resource_id }}</a></td>
+            <td class="text-center">{{ resource.last_analysis_stats['malicious'] }}</td>
+            <td class="text-center">{{ resource.last_analysis_stats['suspicious'] }}</td>
         </tr>
         {% endfor %}
+        {% endif %}
     </table>
 </div>
 {% endblock %}
