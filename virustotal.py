@@ -11,6 +11,7 @@ def get_file_size(file_path):
     file_size / (1024 * 1024)
     return file_size / (1024 * 1024)
 
+
 class VirusTotalClient:
 
     def __init__(self, api_key):
@@ -45,6 +46,7 @@ class VirusTotalClient:
         headers = {'x-apikey': self.api_key, 'accept': 'application/json'}
         response = requests.post(url, data=payload, headers=headers)
         return response
+
 
 if __name__ == '__main__':
     # Load environment variable from .env file

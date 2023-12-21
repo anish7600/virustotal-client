@@ -36,6 +36,7 @@ def calculate_file_sha256(file_path):
 
     return sha256_hash.hexdigest()
 
+
 def get_analysis_status(client, resource_type, sha, response):
     last_analysis_results = response['data']['attributes']['last_analysis_results']
     attempts = 0
@@ -51,8 +52,10 @@ def get_analysis_status(client, resource_type, sha, response):
 
     return last_analysis_results
 
+
 def calculate_url_sha256(url):
     return hashlib.sha256(url.encode()).hexdigest()
+
 
 def save_analysis_stats_to_db(sha, data):
     resource_type = data['data']['type']
@@ -64,9 +67,11 @@ def save_analysis_stats_to_db(sha, data):
     db.session.add(analysis)
     db.session.commit()
 
+
 @app.route('/', methods=['GET'])
 def dashboard():
     return render_template('dashboard.html')
+
 
 @app.route('/scan', methods=['POST'])
 def scan():
@@ -117,11 +122,13 @@ def scan():
             save_analysis_stats_to_db(url_id, response)
             return render_template('dashboard.html', msg=f'URL {url_id} scanned and analyzed by VirusTotal.')
 
+
 @app.route('/scan_results', methods=['POST'])
 def scan_result():
     resource_type = request.form.get('resource_type')
     resources = Analysis.query.filter_by(resource_type=resource_type)
     return render_template('scan_results.html', resources=resources)
+
 
 @app.route('/scan_engine_results', methods=['GET'])
 def scan_engine_results():

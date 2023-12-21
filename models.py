@@ -1,7 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Enum, JSON
 
+
 db = SQLAlchemy()
+
 
 class Analysis(db.Model):
     id = db.Column(db.Integer, primary_key=True)
