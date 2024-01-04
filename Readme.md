@@ -12,12 +12,18 @@
 - flask shell
 - from models import db, Analysis
 - db.create_all()
-- flask db upgrade # setup db migrations
 
 ## VT Analysis Dashboard
 
-![Scan Resource Page](./screenshots/scan_resource.png)
+# Scan Resource
 
-![Scan Results Page](./screenshots/scan_results.png)
+<img src="./screenshots/scan_resource.png" alt="drawing" width="500"/>
 
-![Scan Engine Results Page](./screenshots/scan_engine_results.png)
+# Scan Results
+
+<img src="./screenshots/scan_results.png" alt="drawing" width="500"/>
+
+# Scan Engine Results
+
+<img src="./screenshots/scan_engine_results.png" alt="drawing" width="500"/>
+
